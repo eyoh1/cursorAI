@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <link rel="stylesheet" type="text/css" href="css/sub_layout.css"/>
+</head>
+<body id="sub">
+<div id="wrapper">
+    <div id="container">
+        <div class="wrap">
+            <main class="colgroup">
+                <article>
+                    
+                    <div id="contents">
+                        <h2 style="font-size:36px;">차트 커스텀</h2>
+                        <h3 style="margin-top: 50px; margin-bottom: 20px; font-size: 28px;">적용 사이트 :
+                            <a href="https://www.healingyou.co.kr/www/contents.do?key=26" target="_blank" title="새창" style="color:blue">충북웰니스</a>
+                        </h3>
+                        
+                        
+                        <h3 style="margin-top: 50px; margin-bottom: 20px; font-size: 28px;">세로 막대차트_상단만 둥글게</h3>
+                        <canvas id="chartSingle" width="570" height="300" style="display: block; width: 570px; height: 300px;" class="chartjs-render-monitor"></canvas>
+                        <h4 style="margin-top: 20px;">prompt</h4>
+                        <p>
+                            [세로형 막대 기준 조건]<br>
+                            - chart.js 2.7.2 버전 사용<br>
+                            - 데이터 값 형식은 '원본 값'<br>
+                            - 각 막대 중간에 데이터 값이 오게,<br>
+                            - 라벨 값 텍스트 사이즈 조정, 배경 변경, <br>
+                            - 그래프 모양 변경 '위쪽만 둥글게'<br>
+                            - 0% 경우 아예 그리지 않도록 조건 추가해서 라벨 숨기기<br>
+                        </p>
+                        
+                        <h3 style="margin-top: 50px; margin-bottom: 20px; font-size: 28px;">가로 막대차트_양쪽 둥글게, 데이터값 가운데 정렬</h3>
+                        <canvas id="stackedFullH" width="1200" height="100" style="display: block; width: 1200px; height: 100px;" class="chartjs-render-monitor"></canvas>
+                        
+                        
+                        <h4 style="margin-top: 20px;">prompt</h4>
+                        <p>
+                            [가로형 스택 막대 기준 조건]<br>
+                            - chart.js 2.7.2 버전 사용<br>
+                            - 데이터 값 형식은 '원본 값(퍼센트 값)'<br>
+                            - 막대 전체 기준의 중간이 아닌 각 막대 안쪽 중앙에 데이터 값 표시<br>
+                            - 리렌더링 현상 제거<br>
+                            - 라벨 값 텍스트 사이즈 조정, 배경 변경, <br>
+                            - 그래프 모양 변경 '양쪽 둥글게'<br>
+                            - 0% 경우 라벨 숨기기<br>
+                        
+                        </p>
+                        
+                        
+                        <script src="js/chart.js"></script>
+                        <script src="js/chartPlugin.js"></script>
+                        <script>
+                            // chartSingle 전용: 막대 상단만 둥글게 + 가운데 값(배경 pill) 표시 + 0은 미표시 + 애니메이션 제거
+                            (function () {
+                                function drawRoundRect(ctx, x, y, w, h, r) {
+                                    var rr = Math.min(r, h / 2, w / 2);
+                                    ctx.beginPath();
+                                    ctx.moveTo(x + rr, y);
+                                    ctx.lineTo(x + w - rr, y);
+                                    ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+                                    ctx.lineTo(x + w, y + h - rr);
+                                    ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+                                    ctx.lineTo(x + rr, y + h);
+                                    ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+                                    ctx.lineTo(x, y + rr);
+                                    ctx.quadraticCurveTo(x, y, x + rr, y);
+                                    ctx.closePath();
+                                }
+
+                                // 막대 그리기 자체를 오버라이드하여 afterDatasetsDraw가 정상 동작하도록 처리
+                                var _origRectDraw = Chart.elements.Rectangle.prototype.draw;
+                                Chart.elements.Rectangle.prototype.draw = function () {
+                                    var vm = this._view || this._model;
+                                    var chart = this._chart;
+                                    if (!chart || !chart.chart) {
+                                        return _origRectDraw.apply(this, arguments);
+                                    }
+                                    var canvasId = chart.chart.canvas.id;
+                                    // chartSingle: 세로 막대 상단 라운드
+                                    if (canvasId === 'chartSingle' && (!vm || !vm.horizontal)) {
+                                        var dataset = chart.data && chart.data.datasets ? chart.data.datasets[this._datasetIndex] : null;
+                                        var value = dataset && dataset.data ? dataset.data[this._index] : null;
+                                        if (!value || value === 0) {
+                                            return;
+                                        }
+                                        var ctx = chart.ctx;
+                                        var left = vm.x - vm.width / 2,
+                                            right = vm.x + vm.width / 2,
+                                            top = vm.y,
+                                            bottom = vm.base;
+                                        var width = vm.width,
+                                            height = Math.max(0, bottom - top),
+                                            radius = Math.min(width / 2, height);
+                                        var minBarPx = 4;
+                                        if (height > 0 && height < minBarPx) {
+                                            top = bottom - minBarPx;
+                                            height = minBarPx;
+                                            radius = Math.min(width / 2, height);
+                                        }
+                                        ctx.fillStyle = vm.backgroundColor;
+                                        ctx.strokeStyle = vm.borderColor;
+                                        ctx.lineWidth = vm.borderWidth || 0;
+                                        ctx.beginPath();
+                                        ctx.moveTo(left, bottom);
+                                        ctx.lineTo(left, top + radius);
+                                        ctx.quadraticCurveTo(left, top, left + radius, top);
+                                        ctx.lineTo(right - radius, top);
+                                        ctx.quadraticCurveTo(right, top, right, top + radius);
+                                        ctx.lineTo(right, bottom);
+                                        ctx.closePath();
+                                        ctx.fill();
+                                        if (ctx.lineWidth) {
+                                            ctx.stroke();
+                                        }
+                                        return;
+                                    }
+                                    // stackedFullH: 가로 스택 양끝 라운드
+                                    if (canvasId === 'stackedFullH' && vm && vm.horizontal) {
+                                        var ctx2 = chart.ctx;
+                                        var index = this._index;
+                                        var datasetIndex = this._datasetIndex;
+                                        var datasets = chart.data.datasets;
+                                        var left2 = Math.min(vm.x, vm.base);
+                                        var right2 = Math.max(vm.x, vm.base);
+                                        var top2 = vm.y - vm.height / 2;
+                                        var bottom2 = vm.y + vm.height / 2;
+                                        var valueH = +datasets[datasetIndex].data[index] || 0;
+                                        if (valueH === 0) {
+                                            return;
+                                        }
+                                        // 반경(px)
+                                        var desired = 50;
+                                        var r = Math.min(desired, (bottom2 - top2) / 2, (right2 - left2) / 2);
+                                        // 스택에서 보이는 첫/마지막 찾기(0 제외)
+                                        var first = null, last = null;
+                                        for (var i = 0; i < datasets.length; i++) {
+                                            var meta = chart.getDatasetMeta(i);
+                                            if (meta.hidden) continue;
+                                            var v = +datasets[i].data[index] || 0;
+                                            if (v === 0) continue;
+                                            if (first === null) first = i;
+                                            last = i;
+                                        }
+                                        var roundLeft = (datasetIndex === first);
+                                        var roundRight = (datasetIndex === last);
+                                        ctx2.save();
+                                        ctx2.fillStyle = vm.backgroundColor;
+                                        ctx2.strokeStyle = vm.borderColor;
+                                        ctx2.lineWidth = vm.borderWidth || 0;
+                                        ctx2.beginPath();
+                                        // 상변
+                                        ctx2.moveTo(roundLeft ? (left2 + r) : left2, top2);
+                                        if (roundRight) {
+                                            ctx2.lineTo(right2 - r, top2);
+                                            ctx2.quadraticCurveTo(right2, top2, right2, top2 + r);
+                                        } else {
+                                            ctx2.lineTo(right2, top2);
+                                        }
+                                        // 우변
+                                        if (roundRight) {
+                                            ctx2.lineTo(right2, bottom2 - r);
+                                            ctx2.quadraticCurveTo(right2, bottom2, right2 - r, bottom2);
+                                        } else {
+                                            ctx2.lineTo(right2, bottom2);
+                                        }
+                                        // 하변
+                                        if (roundLeft) {
+                                            ctx2.lineTo(left2 + r, bottom2);
+                                            ctx2.quadraticCurveTo(left2, bottom2, left2, bottom2 - r);
+                                        } else {
+                                            ctx2.lineTo(left2, bottom2);
+                                        }
+                                        // 좌변
+                                        if (roundLeft) {
+                                            ctx2.lineTo(left2, top2 + r);
+                                            ctx2.quadraticCurveTo(left2, top2, left2 + r, top2);
+                                        } else {
+                                            ctx2.lineTo(left2, top2);
+                                        }
+                                        ctx2.closePath();
+                                        ctx2.fill();
+                                        if (ctx2.lineWidth) {
+                                            ctx2.stroke();
+                                        }
+                                        ctx2.restore();
+                                        return;
+                                    }
+                                    return _origRectDraw.apply(this, arguments);
+                                };
+                                Chart.plugins.register({
+                                    afterDatasetsDraw: function (chart) {
+                                        if (chart.config.type !== 'bar' || !chart.chart) return;
+                                        var id = chart.chart.canvas.id;
+                                        // chartSingle만 수직 막대 상단 pill 라벨
+                                        if (id === 'chartSingle') {
+                                            var ctx = chart.ctx;
+                                            var pillW = 36, pillH = 24, pillR = 30; // 요청 사이즈/반경
+                                            ctx.textAlign = 'center';
+                                            ctx.textBaseline = 'middle';
+                                            ctx.font = '600 16px SUIT, sans-serif';
+                                            chart.data.datasets.forEach(function (dataset, i) {
+                                                var meta = chart.getDatasetMeta(i);
+                                                if (meta.hidden) return;
+                                                for (var j = 0; j < meta.data.length; j++) {
+                                                    var v = dataset.data[j];
+                                                    if (!v || v === 0) continue; // 0은 라벨도 미표시
+                                                    var m = meta.data[j]._model;
+                                                    var cx = m.x;
+                                                    var gap = 16; // 막대 위 간격(충돌 방지 여유)
+                                                    // 최소 막대 높이 보정과 동기화: 실제 그려진 top을 재계산해 pill이 겹치지 않도록 함
+                                                    var topY = m.y;
+                                                    var bottomY = m.base;
+                                                    var h = Math.max(0, bottomY - topY);
+                                                    if (h > 0 && h < 4) {
+                                                        topY = bottomY - 4;
+                                                    }
+                                                    var cy = topY - pillH / 2 - gap; // 막대 상단 위쪽
+                                                    // 상단 클리핑 방지: 캔버스 최상단 기준으로 제한 (차트 영역 위 패딩도 사용 가능)
+                                                    var minCy = (pillH / 2 + 2);
+                                                    if (cy < minCy) cy = minCy;
+                                                    var x = cx - pillW / 2, y = cy - pillH / 2;
+                                                    // 겹침 방지: 라벨 아래쪽이 막대 상단과 2px 이상 떨어지도록 강제
+                                                    var barTop = topY; // 위에서 계산된 실제 막대 top
+                                                    var minGap = 2;
+                                                    var labelBottom = cy + pillH / 2;
+                                                    if (labelBottom > barTop - minGap) {
+                                                        cy = barTop - minGap - pillH / 2; // pill을 위로 이동
+                                                    }
+                                                    ctx.fillStyle = '#faf6f3';
+                                                    drawRoundRect(ctx, x, y, pillW, pillH, pillR);
+                                                    ctx.fill();
+                                                    ctx.fillStyle = '#333333';
+                                                    ctx.fillText(v, cx, cy);
+                                                }
+                                            });
+                                        }
+                                    }
+                                });
+                            })();
+                        </script>
+                        <script>
+                            // stackedFullH 라벨: 각 세그먼트 중앙에 텍스트만 표시(투명 배경, #000000)
+                            Chart.plugins.register({
+                                afterDatasetsDraw: function (chart) {
+                                    if (!chart.chart || chart.config.type !== 'horizontalBar' || chart.chart.canvas.id !== 'stackedFullH') return;
+                                    var ctx = chart.ctx;
+                                    ctx.save();
+                                    ctx.textAlign = 'center';
+                                    ctx.textBaseline = 'middle';
+                                    ctx.font = '400 16px SUIT, sans-serif';
+                                    ctx.fillStyle = '#333333';
+                                    var calc = chart.data.calculatedData || [];
+                                    var orig = chart.data.originalData || [];
+                                    chart.data.datasets.forEach(function (ds, di) {
+                                        var meta = chart.getDatasetMeta(di);
+                                        if (meta.hidden) return;
+                                        meta.data.forEach(function (elem, idx) {
+                                            var v = (orig[di] && orig[di][idx] != null) ? orig[di][idx] : ds.data[idx];
+                                            var p = (calc[di] && calc[di][idx] != null) ? calc[di][idx] : 0;
+                                            if (!v || !p) return; // 0은 숨김
+                                            var m = elem._model || elem._view;
+                                            var cx = (m.x + m.base) / 2;
+                                            var cy = m.y;
+                                            ctx.fillText(v + ' (' + p + '%)', cx, cy);
+                                        });
+                                    });
+                                    ctx.restore();
+                                }
+                            });
+                        </script>
+                        <script>
+                            var barOptionDataDispaly = {
+                                responsive: false,  /* 반응형 여부 */
+                                layout: {
+                                    padding: {top: 44, right: 20}
+                                },
+                                legend: {
+                                    display: false,
+                                },
+                                title: {
+                                    display: false,
+                                },
+                                showAllTooltips: false,
+                                tooltips: {
+                                    enabled: false, // tooltips 사용은 event 제거도 풀어야 함
+                                    displayColors: false, //lable 네모 제거
+                                    intersect: true,
+                                    backgroundColor: tooTips.backgroundColor,
+                                    borderColor: tooTips.borderColor,
+                                    bodyFontColor: tooTips.bodyFontColor,
+                                    borderWidth: tooTips.borderWidth,
+                                    cornerRadius: tooTips.cornerRadius,
+                                    yAlign: tooTips.yAlign,
+                                    xAlign: tooTips.xAlign,
+                                    caretPadding: tooTips.caretPadding,
+                                    caretSize: tooTips.caretSize,
+                                    xPadding: tooTips.xPadding,
+                                    yPadding: tooTips.yPadding,
+
+                                },
+                                animation: {duration: 0},
+                                responsiveAnimationDuration: 0,
+                                scales: {
+                                    xAxes: [{
+                                        display: true,
+                                        gridLines: {
+                                            display: false,
+                                            drawBorder: true,
+                                            color: '#9d9d9d',
+                                            zeroLineColor: '#222'
+                                        },
+                                        ticks: {display: true, fontSize: 17, padding: 5},
+                                        barThickness: 40
+                                    }],
+                                    yAxes: [{
+                                        display: false,
+                                        gridLines: {display: false, drawBorder: false},
+                                        ticks: {display: false, beginAtZero: true, stepSize: 1, min: 0}
+                                    }]
+                                },
+                                hover: {mode: null, animationDuration: 0}
+                            }
+
+
+                            var programLabel = ['프로그램1', '프로그램2', '프로그램3', '프로그램4', '프로그램5'];
+                            var programSingleDatasets = [
+                                {
+                                    backgroundColor: chartColors.brown,
+                                    borderColor: chartBorderColors.brown,
+                                    borderWidth: 1,
+                                    barThickness: 40,
+
+                                    data: [
+                                        15, 20, 17, 23, 20
+                                    ]
+                                }
+                            ];
+
+
+                            var stackFullHorizontalOption = {
+                                responsive: true,  /* 반응형 여부 */
+                                legend: {
+                                    display: false,
+                                },
+                                showAllTooltips: false,
+                                tooltips: {
+                                    enabled: false,
+                                    displayColors: false,
+                                    backgroundColor: 'transparent'
+                                },
+                                animation: {duration: 0},
+                                responsiveAnimationDuration: 0,
+                                hover: {mode: null, animationDuration: 0},
+                                scales: {
+                                    xAxes: [{
+                                        stacked: true,
+                                        barThickness: 40,
+                                        display: false,
+                                        gridLines: {display: false, drawBorder: false},
+                                        ticks: {display: false}
+                                    }],
+                                    yAxes: [{
+                                        stacked: true,
+                                        barThickness: 40,
+                                        display: false,
+                                        gridLines: {display: false, drawBorder: false},
+                                        ticks: {display: false}
+                                    }]
+                                },
+                                plugins: {
+                                    stacked100: {
+                                        enable: true,
+                                        replaceTooltipLabel: false
+                                    }
+                                }
+                            }
+
+
+                            var barLabel = ['참가전'];
+                            var barDatasets = [
+                                {
+                                    label: '전혀 그렇지 않다',
+                                    backgroundColor: '#8da49c',
+                                    hoverBackgroundColor: '#8da49c',
+                                    hoverBorderColor: '#8da49c',
+                                    borderWidth: 0,
+                                    categoryPercentage: 0.8,
+                                    barPercentage: 0.8,
+                                    barThickness: 40,
+                                    data: [
+                                        10,
+                                    ]
+                                },
+                                {
+                                    label: '그렇지 않다',
+                                    backgroundColor: '#a7c1a8',
+                                    hoverBackgroundColor: '#a7c1a8',
+                                    hoverBorderColor: '#a7c1a8',
+                                    borderWidth: 0,
+                                    categoryPercentage: 0.8,
+                                    barPercentage: 0.8,
+                                    barThickness: 40,
+                                    data: [
+                                        25,
+                                    ]
+                                },
+                                {
+                                    label: '보통이다',
+                                    backgroundColor: '#d1d8be',
+                                    hoverBackgroundColor: '#d1d8be',
+                                    hoverBorderColor: '#d1d8be',
+                                    borderWidth: 0,
+                                    categoryPercentage: 0.8,
+                                    barPercentage: 0.8,
+                                    barThickness: 40,
+                                    data: [
+                                        25,
+                                    ]
+                                },
+                                {
+                                    label: '그렇다',
+                                    backgroundColor: '#f1f0e4',
+                                    hoverBackgroundColor: '#f1f0e4',
+                                    hoverBorderColor: '#f1f0e4',
+                                    borderWidth: 0,
+                                    categoryPercentage: 0.8,
+                                    barPercentage: 0.8,
+                                    barThickness: 40,
+                                    data: [
+                                        25,
+                                    ]
+                                }
+                                ,
+                                {
+                                    label: '매우 그렇다',
+                                    backgroundColor: '#dbc9b1',
+                                    hoverBackgroundColor: '#dbc9b1',
+                                    hoverBorderColor: '#dbc9b1',
+                                    borderWidth: 0,
+                                    categoryPercentage: 0.8,
+                                    barPercentage: 0.8,
+                                    barThickness: 40,
+                                    data: [
+                                        25,
+                                    ]
+                                }
+                            ];
+
+
+                            window.onload = function () {
+                                chartSingle = creatChart("chartSingle", "bar", programLabel, programSingleDatasets, barOptionDataDispaly);
+                                stackedFullH = creatChart("stackedFullH", "horizontalBar", barLabel, barDatasets, stackFullHorizontalOption);
+                            };
+                        
+                        </script>
+                    
+                    
+                    </div>
+                </article>
+            </main>
+        </div>
+    </div>
+</div>
+</body>
+</html>
